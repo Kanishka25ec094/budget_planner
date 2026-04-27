@@ -2,34 +2,19 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import datetime
+import os
 
 st.set_page_config(page_title="Budget Planner", layout="wide")
 
-# ------------------ STYLE ------------------
-st.markdown("""
-<style>
-.stApp {
-    background: linear-gradient(to right, #141E30, #243B55);
-    color: white;
-}
-h1, h2, h3 {
-    color: #00ffcc;
-    text-align: center;
-}
-.stButton>button {
-    background-color: #00ffcc;
-    color: black;
-    border-radius: 12px;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
+# ------------------ FILE ------------------
+FILE_NAME = "data.csv"
 
-st.title("💰 Smart Budget Planner 📅")
-
-# ------------------ SESSION ------------------
+# ------------------ LOAD DATA ------------------
 if "data" not in st.session_state:
-    st.session_state.data = pd.DataFrame(columns=["Date","Type","Category","Amount"])
+    if os.path.exists(FILE_NAME):
+        st.session_state.data = pd.read_csv(FILE_NAME)
+    else:
+        st.session_state.data = pd.DataFrame(columns=["Date","Type","Category","Amount"])
 
 if "budget" not in st.session_state:
     st.session_state.budget = 0
@@ -37,18 +22,39 @@ if "budget" not in st.session_state:
 if "goal" not in st.session_state:
     st.session_state.goal = 0
 
+# ------------------ UI STYLE ------------------
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(to right, #141E30, #243B55);
+    color: white;
+}
+h1, h2 {
+    color: #00ffcc;
+    text-align: center;
+}
+.stButton>button {
+    background-color: #00ffcc;
+    color: black;
+    border-radius: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("💰 Smart Budget Planner")
+
 # ------------------ SIDEBAR ------------------
 st.sidebar.header("⚙️ Settings")
-st.session_state.budget = st.sidebar.number_input("💵 Monthly Budget", min_value=0)
-st.session_state.goal = st.sidebar.number_input("🎯 Saving Goal", min_value=0)
+st.session_state.budget = st.sidebar.number_input("Monthly Budget", min_value=0)
+st.session_state.goal = st.sidebar.number_input("Saving Goal", min_value=0)
 
-# ------------------ INPUT ------------------
+# ------------------ ADD TRANSACTION ------------------
 st.header("➕ Add Transaction")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    date = st.date_input("📅 Date", datetime.date.today())
+    date = st.date_input("Date", datetime.date.today())
 
 with col2:
     trans_type = st.selectbox("Type", ["Income", "Expense"])
@@ -58,14 +64,18 @@ with col3:
 
 category = st.text_input("Category")
 
-if st.button("💸 Add Transaction"):
+if st.button("Add Transaction"):
     if category != "" and amount > 0:
         new_row = pd.DataFrame([[date, trans_type, category, amount]],
                                columns=["Date","Type","Category","Amount"])
         st.session_state.data = pd.concat([st.session_state.data, new_row], ignore_index=True)
+
+        # SAVE DATA
+        st.session_state.data.to_csv(FILE_NAME, index=False)
+
         st.success("✅ Added Successfully!")
     else:
-        st.warning("⚠️ Enter valid data")
+        st.warning("⚠️ Enter valid details")
 
 # ------------------ DATA PREP ------------------
 data = st.session_state.data.copy()
@@ -96,7 +106,7 @@ col4.metric("💵 Income", f"₹{income}")
 col5.metric("💸 Expense", f"₹{expense}")
 col6.metric("🏦 Balance", f"₹{balance}")
 
-# ------------------ CHART FIXED ------------------
+# ------------------ CHART ------------------
 st.header("📉 Expense Breakdown")
 
 expense_data = filtered_data[filtered_data["Type"]=="Expense"]
@@ -110,18 +120,18 @@ if not expense_data.empty:
 
     st.pyplot(fig)
 else:
-    st.info("No expense data to display")
+    st.info("No expense data")
 
 # ------------------ ALERT ------------------
-st.header("🚨 Budget Status")
+st.header("🚨 Budget Alert")
 
 if st.session_state.budget > 0:
     if expense > st.session_state.budget:
         st.error("💥 Budget Exceeded!")
     elif expense > 0.8 * st.session_state.budget:
-        st.warning("⚠️ Near limit!")
+        st.warning("⚠️ Near limit")
     else:
-        st.success("✅ Safe Zone")
+        st.success("✅ Within budget")
 
 # ------------------ GOAL ------------------
 st.header("🎯 Goal Tracker")
